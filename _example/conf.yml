@@ -1,0 +1,18 @@
+sources:
+    vk:
+        title: Источники из Вконтакте
+        base_url: https://api.vk.com/method
+        api_version: "5.103"
+        domains:
+            - title: Новые альбомы
+              name: newalbums
+            - title: Jon Hopkins
+              name: jon_hopkins
+            - title: Moisture
+              name: moisture
+            - title: E triphop
+              name: e_triphop
+            - title: Cloud Rap
+              name: cloud_rap
+            - title: Idm
+              name: idmclub
