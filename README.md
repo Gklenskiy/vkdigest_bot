@@ -1,1 +1,1 @@
-# Vkdigest Bot ![build](https://github.com/Gklenskiy/vkdigest_bot/workflows/publish/badge.svg?branch=master)
+# Vkdigest Bot ![build](https://github.com/Gklenskiy/vkdigest_bot/workflows/publish/badge.svg?branch=master) [![Go Report Card](https://goreportcard.com/badge/github.com/Gklenskiy/vkdigest_bot)](https://goreportcard.com/report/github.com/Gklenskiy/vkdigest_bot)
