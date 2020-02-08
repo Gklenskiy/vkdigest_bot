@@ -19,7 +19,7 @@ FROM alpine:latest
 RUN apk --no-cache add curl bash
 
 COPY --from=build /build/vkdigest_bot/vkdigest_bot /srv/vkdigest_bot
-COPY --from=build /build/vkdigest_bot/var /srv/var
+#COPY --from=build /build/vkdigest_bot/var /srv/var
 
 WORKDIR /srv
 
