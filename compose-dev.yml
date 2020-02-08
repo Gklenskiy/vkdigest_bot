@@ -1,0 +1,69 @@
+version: "3"
+
+services:
+    vkdigest_bot:
+        build: 
+            context: .
+            dockerfile: Dockerfile
+        image: gklenskiy/vkdigest_bot:dev
+        container_name: vkdigest_bot-dev
+        hostname: vkdigest_bot-dev
+        restart: always
+        links:
+            - db
+        environment:
+            - MR_CONF=/srv/etc/conf.yml
+            - DEBUG=true
+            - WEBHOOK=false
+            - VK_TOKEN
+            - TG_TOKEN
+            - VK_APP_ID
+            - VK_APP_SECRET
+            - AUTH_URL
+            - DB_PORT
+            - DB_HOST=db
+            - DB_USER
+            - DB_PASSWORD
+            - DB_NAME
+        volumes:
+            - ./_example:/srv/etc
+    server:
+        build:
+            context: .
+            dockerfile: Server.Dockerfile
+        image: gklenskiy/vkdigest_bot_server:dev
+        container_name: vkdigest_bot_server-dev
+        hostname: vkdigest_bot_server-dev
+        restart: always
+        links:
+            - db
+        environment:
+            - MR_CONF=/srv/etc/conf.yml
+            - DEBUG=true
+            - PORT
+            - REDIRECT_URL
+            - DB_PORT
+            - DB_HOST=db
+            - DB_USER
+            - DB_PASSWORD
+            - DB_NAME
+            - VK_APP_ID
+            - AUTH_URL
+            - VK_APP_SECRET
+        volumes:
+            - ./_example:/srv/etc
+        ports:
+            - "8098:8080"
+    db:
+        image: postgres:9.5.20-alpine
+        restart: always
+        environment:
+            - DB_PASSWORD
+        volumes:
+            - database_data:/var/lib/postgresql/data
+        ports:
+            - 5439:5432
+
+volumes:
+  database_data:
+    driver: local

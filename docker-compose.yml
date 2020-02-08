@@ -1,0 +1,68 @@
+version: "3"
+
+services:
+    vkdigest_bot:
+        image: gklenskiy/vkdigest_bot:latest
+        container_name: vkdigest_bot
+        hostname: vkdigest_bot
+        restart: always
+        links:
+            - db
+        environment:
+            - MR_CONF=/srv/etc/conf.yml
+            - DEBUG=true
+            - WEBHOOK=false
+            - VK_TOKEN
+            - TG_TOKEN
+            - VK_APP_ID
+            - VK_APP_SECRET
+            - AUTH_URL
+            - DB_PORT
+            - DB_HOST=db
+            - DB_USER
+            - DB_PASSWORD
+            - DB_NAME
+        volumes:
+            - ./var:/srv/etc
+    server:
+        image: gklenskiy/vkdigest_bot_server:latest
+        container_name: vkdigest_bot_server
+        hostname: vkdigest_bot_server
+        restart: always
+        labels:
+            - traefik.backend=vkdigest
+            - traefik.frontend.rule=Host:vkdigest.club
+            - traefik.port=8080
+            - traefik.enable=true
+        links:
+            - db
+        environment:
+            - MR_CONF=/srv/etc/conf.yml
+            - DEBUG=true
+            - PORT
+            - REDIRECT_URL
+            - DB_PORT
+            - DB_HOST=db
+            - DB_USER
+            - DB_PASSWORD
+            - DB_NAME
+            - VK_APP_ID
+            - AUTH_URL
+            - VK_APP_SECRET
+        volumes:
+            - ./var:/srv/etc
+        expose:
+            - "8080"
+    db:
+        image: postgres:9.5.20-alpine
+        restart: always
+        environment:
+            - DB_PASSWORD
+        volumes:
+            - database_data:/var/lib/postgresql/data
+        ports:
+            - 5439:5432
+
+volumes:
+  database_data:
+    driver: local

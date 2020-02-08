@@ -4,26 +4,26 @@ ARG SKIP_TEST
 
 ENV GOFLAGS="-mod=vendor"
 
-COPY . /build/vkdigest
-WORKDIR /build/vkdigest
+COPY . /build/vkdigest_bot
+WORKDIR /build/vkdigest_bot
 
 RUN \
     if [ -z "$SKIP_TEST" ] ; then \
     go test -timeout=30s  ./... ;\
     else echo "skip tests" ; fi
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o vkdigest -ldflags "-s -w" ./app
+RUN CGO_ENABLED=0 GOOS=linux go build -o vkdigest_bot -ldflags "-s -w" ./app
 
 FROM alpine:latest
 
 RUN apk --no-cache add curl bash
 
-COPY --from=build /build/vkdigest/vkdigest /srv/vkdigest
-COPY --from=build /build/vkdigest/var /srv/var
+COPY --from=build /build/vkdigest_bot/vkdigest_bot /srv/vkdigest_bot
+#COPY --from=build /build/vkdigest_bot/var /srv/var
 
 WORKDIR /srv
 
 RUN adduser -D user
 USER user
 
-CMD ["/srv/vkdigest", "bot"]
+CMD ["/srv/vkdigest_bot", "bot"]
