@@ -1,0 +1,49 @@
+name: publish
+
+on:
+  push:
+    branches: 
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: set up go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+        
+      - name: checkout
+        uses: actions/checkout@v2
+      
+      - name: build and test
+        run: go test -timeout=60s ./...
+
+  cd:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: build image bot
+        run: docker build -t bot --build-arg SKIP_TEST=true .
+        
+      - name: build image srv
+        run: docker build -f Server.Dockerfile -t server_bot --build-arg SKIP_TEST=true .
+      
+      - name: Docker login
+        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Tag
+        run: |
+          docker tag bot ${{ secrets.DOCKER_USER }}/vkdigest_bot:master
+          docker tag server_bot ${{ secrets.DOCKER_USER }}/vkdigest_bot_server:master
+          
+      - name: Push
+        run: |
+          docker push ${{ secrets.DOCKER_USER }}/vkdigest_bot:master
+          docker push ${{ secrets.DOCKER_USER }}/vkdigest_bot_server:master
