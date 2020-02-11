@@ -9,11 +9,11 @@ type Conf struct {
 type Source struct {
 	Title      string     `yaml:"title"`
 	BaseURL    string     `yaml:"base_url"`
-	ApiVersion string     `yaml:"api_version"` // nolint
+	APIVersion string     `yaml:"api_version"` // nolint
 	Domains    []VkDomain `yaml:"domains"`
 }
 
-// VkDomain
+// VkDomain explains configuration vk record
 type VkDomain struct {
 	Title string `yaml:"title"`
 	Name  string `yaml:"name"`

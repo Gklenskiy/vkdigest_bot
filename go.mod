@@ -3,6 +3,7 @@ module github.com/Gklenskiy/vkdigest_bot
 go 1.13
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-pkgz/lgr v0.7.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/lib/pq v1.3.0

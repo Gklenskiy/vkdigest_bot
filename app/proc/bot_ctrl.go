@@ -2,6 +2,7 @@ package proc
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Gklenskiy/vkdigest_bot/app/models"
@@ -9,34 +10,34 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
-// BotCtrl
+// BotCtrl bot controller
 type BotCtrl struct {
 	BotCtrlSettings
 }
 
+// BotCtrlSettings settings for bot controller
 type BotCtrlSettings struct {
 	VkBaseURL    string
-	VkApiVersion string
-	Domains      []VkDomain
-	VkAppId      string
-	AuthUrl      string
+	VkAPIVersion string
+	VkAppID      string
+	AuthURL      string
 }
 
-// NewBotCtrl
+// NewBotCtrl creates Bot
 func NewBotCtrl(settings BotCtrlSettings) *BotCtrl {
 	return &BotCtrl{
 		BotCtrlSettings: settings,
 	}
 }
 
-// PingCtrl
+// PingCtrl handle ping command
 func (ctrl *BotCtrl) PingCtrl(b *tb.Bot, m *tb.Message) {
 	b.Send(m.Sender, "pong 4")
 }
 
 // StartCtrl handler /start command
 func (ctrl *BotCtrl) StartCtrl(b *tb.Bot, m *tb.Message) {
-	SendStartMsg(ctrl.VkAppId, ctrl.AuthUrl, ctrl.VkApiVersion, b, m)
+	sendStartMsg(ctrl.VkAppID, ctrl.AuthURL, ctrl.VkAPIVersion, b, m)
 }
 
 // TrendsCtrl for handle trend command
@@ -46,31 +47,32 @@ func (ctrl *BotCtrl) TrendsCtrl(b *tb.Bot, m *tb.Message) {
 	deadline := time.Now().AddDate(0, 0, -daysDeadline).Unix()
 	log.Printf("Deadline date %v \n", time.Unix(deadline, 0))
 
-	userID := m.Sender.ID
-	token, err := models.GetToken(userID)
-	if err != nil {
-		log.Printf("[ERROR] failed to get token for userId %d, %+v", userID, err)
-	}
-
-	if token == "" {
-		log.Printf("[DEBUG] User with ID %d don't have Token", userID)
-		SendStartMsg(ctrl.VkAppId, ctrl.AuthUrl, ctrl.VkApiVersion, b, m)
+	exist, token := ctrl.tryGetUserVkToken(b, m)
+	if !exist {
 		return
-
 	}
 
 	log.Printf("[DEBUG] Start process Trends Request")
 	startProcess := time.Now()
-	vkClient := NewVkClient(ctrl.VkBaseURL, token, ctrl.VkApiVersion, 500*time.Millisecond)
+	vkClient := NewVkClient(ctrl.VkBaseURL, token, ctrl.VkAPIVersion, time.Millisecond)
 
 	var allPosts Posts
 	log.Printf("[DEBUG] Start get Posts")
 	start := time.Now()
 	ch := make(chan Posts)
-	for _, domain := range ctrl.Domains {
-		go ProcessDomain(vkClient, deadline, domain, ch)
+
+	userID := m.Sender.ID
+	sources, err := models.GetSources(userID)
+	if err != nil {
+		log.Printf("[ERROR] while get sources %+v", err)
+		return
 	}
-	for range ctrl.Domains {
+
+	for _, domain := range sources {
+		go processDomain(vkClient, deadline, domain, ch)
+	}
+
+	for range sources {
 		posts := <-ch
 		allPosts = append(allPosts, posts...)
 	}
@@ -102,8 +104,86 @@ func (ctrl *BotCtrl) TrendsCtrl(b *tb.Bot, m *tb.Message) {
 	}
 }
 
-func ProcessDomain(vkClient *VkClient, deadline int64, domain VkDomain, ch chan<- Posts) {
-	posts, err := vkClient.GetPosts(0, deadline, domain.Name)
+// AddCtrl handles command for add source
+func (ctrl *BotCtrl) AddCtrl(b *tb.Bot, m *tb.Message) {
+	exist, token := ctrl.tryGetUserVkToken(b, m)
+	if !exist {
+		return
+	}
+
+	commandParam := getCommandParams(m.Text)
+	log.Printf("[DEBUG] Add: %s", commandParam)
+	if m.Text == "" {
+		b.Send(m.Sender,
+			"Введи ссылку на страницу вк, например https://vk.com/newalbums \n"+
+				"Либо короткое имя страницы, например: newalbums")
+		return
+	}
+
+	domain := getDomain(commandParam)
+	vkClient := NewVkClient(ctrl.VkBaseURL, token, ctrl.VkAPIVersion, time.Millisecond)
+	if !vkClient.IsValidDomain(domain) {
+		b.Send(m.Sender, "Ссылка недействительна \n"+
+			"Введи ссылку на страницу вк, например https://vk.com/newalbums \n"+
+			"Либо короткое имя страницы, например: newalbums")
+		return
+	}
+
+	log.Printf("[DEBUG] Add: Success! Save %s", domain)
+	userID := m.Sender.ID
+	err := models.CreateSource(userID, domain)
+	if err != nil {
+		log.Printf("[ERROR] failed to save sourse %s for user %d, %+v", domain, userID, err)
+		b.Send(m.Sender, "Хмммммм... Какие-то проблемы, попробуй ещё раз")
+		return
+	}
+
+	b.Send(m.Sender, "Успех!")
+}
+
+func getCommandParams(userInput string) string {
+	idx := strings.Index(userInput, " ")
+	commandParam := userInput[idx+1:]
+
+	return commandParam
+}
+
+func getDomain(commandParam string) string {
+	slahIdx := strings.LastIndex(commandParam, "/")
+	var domain string
+	if slahIdx > -1 {
+		domain = commandParam[slahIdx+1:]
+	} else {
+		domain = commandParam
+	}
+	log.Printf("[DEBUG] Add: domain specified %s", domain)
+
+	return domain
+}
+
+// ListCtrl handle command for list of sources
+func (ctrl *BotCtrl) ListCtrl(b *tb.Bot, m *tb.Message) {
+	exist, _ := ctrl.tryGetUserVkToken(b, m)
+	if !exist {
+		return
+	}
+
+	userID := m.Sender.ID
+	sources, err := models.GetSources(userID)
+	if err != nil {
+		log.Printf("[ERROR] while get sources %+v", err)
+		return
+	}
+
+	var msg string
+	for _, v := range sources {
+		msg += v + "\n"
+	}
+	b.Send(m.Sender, msg)
+}
+
+func processDomain(vkClient *VkClient, deadline int64, domain string, ch chan<- Posts) {
+	posts, err := vkClient.GetPosts(0, deadline, domain)
 	if err != nil {
 		log.Printf("[ERROR] failed to get posts from Vk, %+v", err)
 	}
@@ -112,9 +192,9 @@ func ProcessDomain(vkClient *VkClient, deadline int64, domain VkDomain, ch chan<
 	ch <- posts
 }
 
-func SendStartMsg(vkApi string, authURL string, vkApiVersion string, b *tb.Bot, m *tb.Message) {
+func sendStartMsg(vkAPI string, authURL string, vkAPIVersion string, b *tb.Bot, m *tb.Message) {
 	url := fmt.Sprintf(`https://oauth.vk.com/authorize?client_id=%s&display=page&redirect_uri=%s&scope=wall,offline&response_type=code&v=%s&state=%d`,
-		vkApi, authURL, vkApiVersion, m.Sender.ID)
+		vkAPI, authURL, vkAPIVersion, m.Sender.ID)
 
 	inlineBtn := tb.InlineButton{
 		Unique: "auth",
@@ -137,4 +217,21 @@ func SendStartMsg(vkApi string, authURL string, vkApiVersion string, b *tb.Bot, 
 		"Переходи по ссылке ниже и жми Разрешить", &tb.ReplyMarkup{
 		InlineKeyboard: inlineKeys,
 	})
+}
+
+func (ctrl *BotCtrl) tryGetUserVkToken(b *tb.Bot, m *tb.Message) (bool, string) {
+	userID := m.Sender.ID
+	token, err := models.GetToken(userID)
+	if err != nil {
+		log.Printf("[ERROR] failed to get token for userId %d, %+v", userID, err)
+		return false, ""
+	}
+
+	if token == "" {
+		log.Printf("[DEBUG] User with ID %d don't have Token", userID)
+		sendStartMsg(ctrl.VkAppID, ctrl.AuthURL, ctrl.VkAPIVersion, b, m)
+		return false, ""
+	}
+
+	return true, token
 }

@@ -7,13 +7,13 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
-// TelegramBot
+// TelegramBot struct
 type TelegramBot struct {
 	Bot     *tb.Bot
 	Timeout time.Duration
 }
 
-// Setting for Telegram bot
+// Settings for Telegram bot
 type Settings struct {
 	Port        string
 	PublicURL   string
@@ -59,7 +59,7 @@ func (tbot *TelegramBot) Start() {
 	tbot.Bot.Start()
 }
 
-// Use
+// Use set command endpoint for bot
 func (tbot *TelegramBot) Use(endpoint interface{}, handler func(b *tb.Bot, m *tb.Message)) {
 	tbot.Bot.Handle(endpoint, func(m *tb.Message) {
 		handler(tbot.Bot, m)

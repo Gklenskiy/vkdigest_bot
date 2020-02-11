@@ -12,6 +12,8 @@ import (
 )
 
 const getPosts = "execute.getPostsMax"
+const resolveScreenName = "utils.resolveScreenName"
+const getWallGet = "wall.get"
 
 // VkClient client for work with VK
 type VkClient struct {
@@ -24,6 +26,24 @@ type VkClient struct {
 type getPostsResponse struct {
 	Response      []item                   `json:"response"`
 	ExecuteErrors []map[string]interface{} `json:"execute_errors"`
+}
+
+type vkErrorResponse struct {
+	ErrorCode int    `json:"error_code"`
+	ErrorMsg  string `json:"error_msg"`
+}
+
+type baseVkResponse struct {
+	Error vkErrorResponse `json:"error"`
+}
+
+type resolveScreenNameResponseItem struct {
+	Type     string `json:"type"`
+	ObjectID int    `json:"object_id"`
+}
+
+type resolveScreenNameResponse struct {
+	Response resolveScreenNameResponseItem `json:"response"`
 }
 
 type item struct {
@@ -39,13 +59,13 @@ type item struct {
 }
 
 // NewVkClient init vk client
-func NewVkClient(vkApiURL, accessToken, version string, timeout time.Duration) *VkClient {
+func NewVkClient(vkAPIURL, accessToken, version string, timeout time.Duration) *VkClient {
 
 	client := VkClient{
 		AccessToken: accessToken,
 		Version:     version,
-		BaseURL:     vkApiURL,
-		Timeout:     timeout,
+		BaseURL:     vkAPIURL,
+		Timeout:     500 * timeout,
 	}
 
 	return &client
@@ -102,6 +122,86 @@ func (client VkClient) GetPosts(offset int, deadline int64, domain string) (Post
 
 	log.Printf("[DEBUG] Posts count from: %s is %d", domain, len(posts))
 	return posts, nil
+}
+
+// IsValidDomain validate vk page-domain by request
+func (client VkClient) IsValidDomain(domain string) bool {
+	if domain == "" {
+		return false
+	}
+
+	httpClient := &http.Client{Timeout: client.Timeout * time.Second}
+	if !client.checkDomainExists(domain, httpClient) {
+		return false
+	}
+
+	if !client.checkDomainAccess(domain, httpClient) {
+		return false
+	}
+
+	return true
+}
+
+func (client VkClient) checkDomainExists(domain string, httpClient *http.Client) bool {
+	requestExists, err := client.testDomainExistsURL(domain)
+	log.Printf("[DEBUG] Send request: %s", requestExists.URL.RequestURI())
+	resp, err := httpClient.Do(requestExists)
+	if err != nil {
+		log.Printf("[DEBUG] not valid domain %s, %s", domain, err)
+		return false
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("[ERROR] failed on read response body, %s", err)
+		return false
+	}
+
+	log.Printf("[DEBUG] Unmurshal: %s", body)
+	var parsedExistsResponse resolveScreenNameResponse
+	err = json.Unmarshal(body, &parsedExistsResponse)
+	if err != nil {
+		log.Printf("[ERROR] failed to unmarshal response, %s", err)
+		return false
+	}
+
+	if parsedExistsResponse.Response.Type == "" {
+		log.Printf("[DEBUG] domain not exist")
+		return false
+	}
+
+	return true
+}
+
+func (client VkClient) checkDomainAccess(domain string, httpClient *http.Client) bool {
+	request, err := client.testDomainWallURL(domain)
+	log.Printf("[DEBUG] Send request: %s", request.URL.RequestURI())
+	resp, err := httpClient.Do(request)
+	if err != nil {
+		log.Printf("[DEBUG] not valid domain %s, %s", domain, err)
+		return false
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("[ERROR] failed on read response body, %s", err)
+		return false
+	}
+
+	log.Printf("[DEBUG] Unmurshal: %s", body)
+	var parsedResponse baseVkResponse
+	err = json.Unmarshal(body, &parsedResponse)
+	if err != nil {
+		log.Printf("[ERROR] failed to unmarshal response, %s", err)
+		return false
+	}
+
+	if parsedResponse.Error.ErrorCode != 0 {
+		log.Printf("[DEBUG] get error on test domain request, %s", parsedResponse.Error.ErrorMsg)
+		return false
+	}
+
+	return true
 }
 
 func isLast(response getPostsResponse) bool {
@@ -198,6 +298,40 @@ func (client VkClient) getPostsURL(offset int, deadline int64, domain string) (*
 	q.Add("offset", strconv.Itoa(offset))
 	q.Add("deadline", strconv.FormatInt(deadline, 10))
 	q.Add("domain", domain)
+	q.Add("v", client.Version)
+	q.Add("access_token", client.AccessToken)
+
+	req.URL.RawQuery = q.Encode()
+
+	return req, err
+}
+
+func (client VkClient) testDomainExistsURL(domain string) (*http.Request, error) {
+	req, err := http.NewRequest("GET", client.BaseURL+"/"+resolveScreenName, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Add("screen_name", domain)
+	q.Add("v", client.Version)
+	q.Add("access_token", client.AccessToken)
+
+	req.URL.RawQuery = q.Encode()
+
+	return req, err
+}
+
+func (client VkClient) testDomainWallURL(domain string) (*http.Request, error) {
+	req, err := http.NewRequest("GET", client.BaseURL+"/"+getWallGet, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Add("owner_id", "")
+	q.Add("domain", domain)
+	q.Add("count", "1")
 	q.Add("v", client.Version)
 	q.Add("access_token", client.AccessToken)
 

@@ -83,7 +83,7 @@ func (posts Posts) SetAverageRating() float64 {
 	return avg
 }
 
-// Filter
+// Filter posts by sort type
 func (posts Posts) Filter(sortType int) {
 	sort.Slice(posts, func(i, j int) bool {
 		switch sortType {

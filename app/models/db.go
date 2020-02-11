@@ -10,7 +10,7 @@ import (
 
 var db *sql.DB
 
-// Setting for Db
+// DbSettings for Db
 type DbSettings struct {
 	Port     int
 	Host     string
@@ -19,7 +19,7 @@ type DbSettings struct {
 	Dbname   string
 }
 
-// InitDB
+// InitDB init database
 func InitDB(dbSettings DbSettings) error {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		dbSettings.Host, dbSettings.Port, dbSettings.User, dbSettings.Password, dbSettings.Dbname)

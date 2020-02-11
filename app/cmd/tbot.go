@@ -33,15 +33,16 @@ func (tcmd *TelegramCommand) Execute(args []string) error {
 	log.Printf("[INFO] set commands")
 
 	api := proc.NewBotCtrl(proc.BotCtrlSettings{
-		VkBaseURL:    tcmd.CommonOpts.Conf.Sources["vk"].BaseURL,
-		VkApiVersion: tcmd.CommonOpts.Conf.Sources["vk"].ApiVersion,
-		Domains:      tcmd.CommonOpts.Conf.Sources["vk"].Domains,
-		VkAppId:      tcmd.VkAppID,
-		AuthUrl:      tcmd.AuthURL,
+		VkBaseURL:    "https://api.vk.com/method",
+		VkAPIVersion: "5.103",
+		VkAppID:      tcmd.VkAppID,
+		AuthURL:      tcmd.AuthURL,
 	})
 	app.Use("/ping", api.PingCtrl)
 	app.Use("/trend", api.TrendsCtrl)
 	app.Use("/start", api.StartCtrl)
+	app.Use("/add", api.AddCtrl)
+	app.Use("/list", api.ListCtrl)
 
 	log.Printf("[INFO] listen commands")
 	app.Start()
