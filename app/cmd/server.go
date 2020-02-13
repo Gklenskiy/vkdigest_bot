@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -10,7 +11,6 @@ import (
 	"github.com/Gklenskiy/vkdigest_bot/app/models"
 
 	log "github.com/go-pkgz/lgr"
-	_ "github.com/lib/pq"
 )
 
 // ServerCommand with params
@@ -61,30 +61,75 @@ func redirectToBot(w http.ResponseWriter, r *http.Request) {
 	log.Printf("GET params were: %s", r.URL.Query())
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		// return error
+		log.Printf("[ERROR] code is empty")
+		http.Error(w, http.StatusText(404), 404)
+		return
 	}
 	log.Printf("code: %s", code)
 
 	state := r.URL.Query().Get("state")
 	if state == "" {
-		// return error
+		log.Printf("[ERROR] state is empty")
+		http.Error(w, http.StatusText(404), 404)
+		return
 	}
 	log.Printf("state: %s", state)
 
-	userID, err := strconv.Atoi(state)
+	token, err := getAccessToken(code)
 	if err != nil {
-		log.Printf("%s is not an integer.", state)
+		log.Printf("[ERROR] Error while get access token")
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 
-	////
-	httpClient := &http.Client{Timeout: 500 * time.Millisecond * time.Second}
+	userID, err := strconv.Atoi(state)
+	if err != nil {
+		log.Printf("[ERROR] %s is not an integer.", state)
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+	err = models.CreateOrUpdate(userID, token)
+	if err != nil {
+		log.Printf("[ERROR] While save user token: %s", err)
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+}
+
+func getAccessToken(code string) (string, error) {
+	req, err := getRequestForAccessToken(code)
+	if err != nil {
+		return "", err
+	}
+
 	log.Printf("[DEBUG] Send request for auth")
+	httpClient := &http.Client{Timeout: 500 * time.Millisecond * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		log.Printf("[ERROR] failed on Get access token, %s", err)
+		return "", err
+	}
+
+	parsedResponse, err := parseAccessTokenResponse(resp)
+	if err != nil {
+		return "", err
+	}
+
+	if parsedResponse.Error != "" {
+		log.Printf("[ERROR] failed to get access token, Error: %s Description: %s", parsedResponse.Error, parsedResponse.ErrorDescription)
+		return "", errors.New(parsedResponse.Error)
+	}
+
+	return parsedResponse.Token, nil
+}
+
+func getRequestForAccessToken(code string) (*http.Request, error) {
 	req, err := http.NewRequest("GET", "https://oauth.vk.com/access_token", nil)
 	if err != nil {
 		log.Printf("[ERROR] While Send request for auth: %s", err)
-		return
+		return nil, err
 	}
 
 	q := req.URL.Query()
@@ -94,16 +139,15 @@ func redirectToBot(w http.ResponseWriter, r *http.Request) {
 	q.Add("code", code)
 
 	req.URL.RawQuery = q.Encode()
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		log.Printf("[ERROR] failed on Get access token, %s", err)
-		return
-	}
 
+	return req, nil
+}
+
+func parseAccessTokenResponse(resp *http.Response) (*authResponse, error) {
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("[ERROR] failed on read response body, %s", err)
-		return
+		return nil, err
 	}
 
 	var result authResponse
@@ -111,22 +155,8 @@ func redirectToBot(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(body, &result)
 	if err != nil {
 		log.Printf("[ERROR] failed to unmarshal response, %s", err)
-		return
+		return nil, err
 	}
 
-	if result.Error != "" {
-		log.Printf("[ERROR] failed to get access token, Error: %s Description: %s", result.Error, result.ErrorDescription)
-		return
-	}
-
-	token := result.Token
-	////
-	err = models.CreateOrUpdate(userID, token)
-	if err != nil {
-		log.Printf("[ERROR] While save user token: %s", err)
-		http.Error(w, http.StatusText(500), 500)
-		return
-	}
-
-	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+	return &result, nil
 }
