@@ -145,7 +145,7 @@ func (client VkClient) IsValidDomain(domain string) bool {
 func (client VkClient) checkDomainExists(domain string, httpClient *http.Client) bool {
 	requestExists, err := client.testDomainExistsURL(domain)
 	if err != nil {
-		log.Printf("[ERROR] can't get test domain request model %s", domain, err)
+		log.Printf("[ERROR] can't get test domain request model %s, %s", domain, err)
 		return false
 	}
 
@@ -181,7 +181,7 @@ func (client VkClient) checkDomainExists(domain string, httpClient *http.Client)
 func (client VkClient) checkDomainAccess(domain string, httpClient *http.Client) bool {
 	request, err := client.testDomainWallURL(domain)
 	if err != nil {
-		log.Printf("[ERROR] can't get test domain wall request model %s", domain, err)
+		log.Printf("[ERROR] can't get test domain wall request model %s, %s", domain, err)
 		return false
 	}
 	log.Printf("[DEBUG] Send request: %s", request.URL.RequestURI())
