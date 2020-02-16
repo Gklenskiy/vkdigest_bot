@@ -9,8 +9,9 @@ WORKDIR /build/vkdigest_bot
 
 RUN \
     if [ -z "$SKIP_TEST" ] ; then \
-    go test -timeout=30s  ./... ;\
-    else echo "skip tests" ; fi
+    go test -timeout=30s  ./... && \
+    golangci-lint run ; \
+    else echo "skip tests and linter" ; fi
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o vkdigest_bot -ldflags "-s -w" ./app
 

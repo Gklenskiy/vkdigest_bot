@@ -25,7 +25,7 @@ type Settings struct {
 // NewTelegramBot init vk client
 func NewTelegramBot(settings Settings) (*TelegramBot, error) {
 	var poller tb.Poller
-	if settings.WithWebhook == true {
+	if settings.WithWebhook {
 		poller = &tb.Webhook{
 			Listen:   ":" + settings.Port,
 			Endpoint: &tb.WebhookEndpoint{PublicURL: settings.PublicURL},

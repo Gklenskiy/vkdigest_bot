@@ -32,7 +32,10 @@ func NewBotCtrl(settings BotCtrlSettings) *BotCtrl {
 
 // PingCtrl handle ping command
 func (ctrl *BotCtrl) PingCtrl(b *tb.Bot, m *tb.Message) {
-	b.Send(m.Sender, "pong 4")
+	_, err := b.Send(m.Sender, "pong 4")
+	if err != nil {
+		log.Printf("[Error] while send message to user %+v", err)
+	}
 }
 
 // StartCtrl handler /start command
@@ -45,7 +48,7 @@ func (ctrl *BotCtrl) TrendsCtrl(b *tb.Bot, m *tb.Message) {
 	sortType := 0
 	daysDeadline := 7
 	deadline := time.Now().AddDate(0, 0, -daysDeadline).Unix()
-	log.Printf("Deadline date %v \n", time.Unix(deadline, 0))
+	log.Printf("[DEBUG] Deadline date %v \n", time.Unix(deadline, 0))
 
 	exist, token := ctrl.tryGetUserVkToken(b, m)
 	if !exist {
@@ -69,8 +72,11 @@ func (ctrl *BotCtrl) TrendsCtrl(b *tb.Bot, m *tb.Message) {
 	}
 
 	if len(sources) == 0 {
-		b.Send(m.Sender, "В списке источников пока ничего нет\n"+
+		_, err := b.Send(m.Sender, "В списке источников пока ничего нет\n"+
 			"Добавить страницу можно командой /add\n")
+		if err != nil {
+			log.Printf("[Error] while send message to user %+v", err)
+		}
 		return
 	}
 
@@ -106,7 +112,10 @@ func (ctrl *BotCtrl) TrendsCtrl(b *tb.Bot, m *tb.Message) {
 	elapsedProcess := time.Since(startProcess)
 	log.Printf("[DEBUG] End process Trends Request %s", elapsedProcess)
 	for _, v := range res {
-		b.Send(m.Sender, v)
+		_, err := b.Send(m.Sender, v)
+		if err != nil {
+			log.Printf("[Error] while send message to user %+v", err)
+		}
 	}
 }
 
@@ -120,18 +129,24 @@ func (ctrl *BotCtrl) AddCtrl(b *tb.Bot, m *tb.Message) {
 	commandParam := getCommandParams(m.Text)
 	log.Printf("[DEBUG] Add: %s", commandParam)
 	if commandParam == "" {
-		b.Send(m.Sender,
+		_, err := b.Send(m.Sender,
 			"Введи ссылку на страницу вк, например https://vk.com/newalbums \n"+
 				"Либо короткое имя страницы, например: newalbums")
+		if err != nil {
+			log.Printf("[Error] while send message to user %+v", err)
+		}
 		return
 	}
 
 	domain := getDomain(commandParam)
 	vkClient := NewVkClient(ctrl.VkBaseURL, token, ctrl.VkAPIVersion, time.Millisecond)
 	if !vkClient.IsValidDomain(domain) {
-		b.Send(m.Sender, "Ссылка недействительна \n"+
+		_, err := b.Send(m.Sender, "Ссылка недействительна \n"+
 			"Введи ссылку на страницу вк, например https://vk.com/newalbums \n"+
 			"Либо короткое имя страницы, например: newalbums")
+		if err != nil {
+			log.Printf("[Error] while send message to user %+v", err)
+		}
 		return
 	}
 
@@ -140,11 +155,18 @@ func (ctrl *BotCtrl) AddCtrl(b *tb.Bot, m *tb.Message) {
 	err := models.CreateSource(userID, domain)
 	if err != nil {
 		log.Printf("[ERROR] failed to save sourse %s for user %d, %+v", domain, userID, err)
-		b.Send(m.Sender, "Хмммммм... Какие-то проблемы, попробуй ещё раз")
+		_, err := b.Send(m.Sender, "Хмммммм... Какие-то проблемы, попробуй ещё раз")
+		if err != nil {
+			log.Printf("[Error] while send message to user %+v", err)
+		}
+
 		return
 	}
 
-	b.Send(m.Sender, "Успех!")
+	_, err = b.Send(m.Sender, "Успех!")
+	if err != nil {
+		log.Printf("[Error] while send message to user %+v", err)
+	}
 }
 
 //DeleteCtrl handles command for delete source
@@ -157,7 +179,10 @@ func (ctrl *BotCtrl) DeleteCtrl(b *tb.Bot, m *tb.Message) {
 	commandParam := getCommandParams(m.Text)
 	log.Printf("[DEBUG] Delete: %s", commandParam)
 	if commandParam == "" {
-		b.Send(m.Sender, "Введите название страницы")
+		_, err := b.Send(m.Sender, "Введите название страницы")
+		if err != nil {
+			log.Printf("[Error] while send message to user %+v", err)
+		}
 		return
 	}
 
@@ -166,15 +191,26 @@ func (ctrl *BotCtrl) DeleteCtrl(b *tb.Bot, m *tb.Message) {
 	rowCount, err := models.DeleteSource(userID, domain)
 	if err != nil {
 		log.Printf("[ERROR] failed to delete sourse %s for user %d, %+v", domain, userID, err)
-		b.Send(m.Sender, "Хмммммм... Какие-то проблемы, попробуй ещё раз")
+		_, err := b.Send(m.Sender, "Хмммммм... Какие-то проблемы, попробуй ещё раз")
+		if err != nil {
+			log.Printf("[Error] while send message to user %+v", err)
+		}
+
 		return
 	}
 	if rowCount == 0 {
-		b.Send(m.Sender, "Такой страницы нет в списке")
+		_, err := b.Send(m.Sender, "Такой страницы нет в списке")
+		if err != nil {
+			log.Printf("[Error] while send message to user %+v", err)
+		}
+
 		return
 	}
 
-	b.Send(m.Sender, "Готово!")
+	_, err = b.Send(m.Sender, "Готово!")
+	if err != nil {
+		log.Printf("[Error] while send message to user %+v", err)
+	}
 }
 
 func getCommandParams(userInput string) string {
@@ -214,8 +250,11 @@ func (ctrl *BotCtrl) ListCtrl(b *tb.Bot, m *tb.Message) {
 	}
 
 	if len(sources) == 0 {
-		b.Send(m.Sender, "В списке источников пока ничего нет\n"+
+		_, err := b.Send(m.Sender, "В списке источников пока ничего нет\n"+
 			"Добавить страницу можно командой /add\n")
+		if err != nil {
+			log.Printf("[Error] while send message to user %+v", err)
+		}
 		return
 	}
 
@@ -223,7 +262,11 @@ func (ctrl *BotCtrl) ListCtrl(b *tb.Bot, m *tb.Message) {
 	for _, v := range sources {
 		msg += v + "\n"
 	}
-	b.Send(m.Sender, msg)
+	_, err = b.Send(m.Sender, msg)
+	if err != nil {
+		log.Printf("[Error] while send message to user %+v", err)
+	}
+
 }
 
 func processDomain(vkClient *VkClient, deadline int64, domain string, ch chan<- Posts) {
@@ -254,13 +297,16 @@ func sendStartMsg(vkAPI string, authURL string, vkAPIVersion string, b *tb.Bot, 
 		return
 	}
 
-	b.Send(m.Sender, "Салют!"+
+	_, err := b.Send(m.Sender, "Салют!"+
 		"Я использую функции Вконтакте, поэтому мне необходимо"+
 		"чуть больше возможностей."+
 		"Обещаю использовать их по назначению."+
 		"Переходи по ссылке ниже и жми Разрешить", &tb.ReplyMarkup{
 		InlineKeyboard: inlineKeys,
 	})
+	if err != nil {
+		log.Printf("[Error] while send message to user %+v", err)
+	}
 }
 
 func (ctrl *BotCtrl) tryGetUserVkToken(b *tb.Bot, m *tb.Message) (bool, string) {

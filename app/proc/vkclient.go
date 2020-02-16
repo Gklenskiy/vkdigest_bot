@@ -220,14 +220,10 @@ func isLast(response getPostsResponse) bool {
 	}
 
 	lastIdx := sort.Search(len, func(i int) bool {
-		return response.Response[i].Last == true
+		return response.Response[i].Last
 	})
 
-	if lastIdx < len {
-		return true
-	}
-
-	return false
+	return lastIdx < len
 }
 
 func cropByDeadline(posts []Post, deadline int64) []Post {
