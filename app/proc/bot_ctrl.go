@@ -68,6 +68,12 @@ func (ctrl *BotCtrl) TrendsCtrl(b *tb.Bot, m *tb.Message) {
 		return
 	}
 
+	if len(sources) == 0 {
+		b.Send(m.Sender, "В списке источников пока ничего нет\n"+
+			"Добавить страницу можно командой /add\n")
+		return
+	}
+
 	for _, domain := range sources {
 		go processDomain(vkClient, deadline, domain, ch)
 	}
@@ -204,6 +210,12 @@ func (ctrl *BotCtrl) ListCtrl(b *tb.Bot, m *tb.Message) {
 	sources, err := models.GetSources(userID)
 	if err != nil {
 		log.Printf("[ERROR] while get sources %+v", err)
+		return
+	}
+
+	if len(sources) == 0 {
+		b.Send(m.Sender, "В списке источников пока ничего нет\n"+
+			"Добавить страницу можно командой /add\n")
 		return
 	}
 
