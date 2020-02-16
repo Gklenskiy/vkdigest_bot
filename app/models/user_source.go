@@ -54,3 +54,24 @@ func CreateSource(userID int, source string) error {
 	log.Printf("[DEBUG] Affected = %d\n", rowCnt)
 	return nil
 }
+
+// DeleteSource for user
+func DeleteSource(userID int, source string) (int64, error) {
+	stmt, err := db.Prepare("DELETE FROM user_sources where user_id=$1 AND source=$2")
+	if err != nil {
+		return 0, err
+	}
+
+	res, err := stmt.Exec(userID, source)
+	if err != nil {
+		return 0, err
+	}
+
+	rowCnt, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	log.Printf("[DEBUG] Affected = %d\n", rowCnt)
+	return rowCnt, nil
+}

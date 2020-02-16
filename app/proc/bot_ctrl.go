@@ -113,7 +113,7 @@ func (ctrl *BotCtrl) AddCtrl(b *tb.Bot, m *tb.Message) {
 
 	commandParam := getCommandParams(m.Text)
 	log.Printf("[DEBUG] Add: %s", commandParam)
-	if m.Text == "" {
+	if commandParam == "" {
 		b.Send(m.Sender,
 			"Введи ссылку на страницу вк, например https://vk.com/newalbums \n"+
 				"Либо короткое имя страницы, например: newalbums")
@@ -141,11 +141,43 @@ func (ctrl *BotCtrl) AddCtrl(b *tb.Bot, m *tb.Message) {
 	b.Send(m.Sender, "Успех!")
 }
 
+//DeleteCtrl handles command for delete source
+func (ctrl *BotCtrl) DeleteCtrl(b *tb.Bot, m *tb.Message) {
+	exist, _ := ctrl.tryGetUserVkToken(b, m)
+	if !exist {
+		return
+	}
+
+	commandParam := getCommandParams(m.Text)
+	log.Printf("[DEBUG] Delete: %s", commandParam)
+	if commandParam == "" {
+		b.Send(m.Sender, "Введите название страницы")
+		return
+	}
+
+	domain := getDomain(commandParam)
+	userID := m.Sender.ID
+	rowCount, err := models.DeleteSource(userID, domain)
+	if err != nil {
+		log.Printf("[ERROR] failed to delete sourse %s for user %d, %+v", domain, userID, err)
+		b.Send(m.Sender, "Хмммммм... Какие-то проблемы, попробуй ещё раз")
+		return
+	}
+	if rowCount == 0 {
+		b.Send(m.Sender, "Такой страницы нет в списке")
+		return
+	}
+
+	b.Send(m.Sender, "Готово!")
+}
+
 func getCommandParams(userInput string) string {
 	idx := strings.Index(userInput, " ")
-	commandParam := userInput[idx+1:]
-
-	return commandParam
+	if idx > -1 {
+		return userInput[idx+1:]
+	} else {
+		return ""
+	}
 }
 
 func getDomain(commandParam string) string {
@@ -156,7 +188,7 @@ func getDomain(commandParam string) string {
 	} else {
 		domain = commandParam
 	}
-	log.Printf("[DEBUG] Add: domain specified %s", domain)
+	log.Printf("[DEBUG] Domain specified %s", domain)
 
 	return domain
 }

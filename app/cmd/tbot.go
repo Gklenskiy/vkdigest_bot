@@ -43,6 +43,7 @@ func (tcmd *TelegramCommand) Execute(args []string) error {
 	app.Use("/start", api.StartCtrl)
 	app.Use("/add", api.AddCtrl)
 	app.Use("/list", api.ListCtrl)
+	app.Use("/del", api.DeleteCtrl)
 
 	log.Printf("[INFO] listen commands")
 	app.Start()
